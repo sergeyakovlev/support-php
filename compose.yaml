@@ -1,0 +1,10 @@
+name: sergeyakovlev_support
+
+services:
+  php:
+    build:
+      context: ./docker/php/
+    container_name: php
+    volumes:
+      - ./:/var/www/html/
+      - ./docker/php/custom-php.ini:/usr/local/etc/php/conf.d/custom-php.ini
