@@ -6,6 +6,9 @@
         }
     ],
     "autoload": {
+        "files": [
+            "src/DotNotation/DotNotationArrayFunctions.php"
+        ],
         "psr-4": {
             "\\SergeYakovlev\\Support\\": "src/"
         }
@@ -24,6 +27,8 @@
     "description": "Support package",
     "homepage": "https://github.com/sergeyakovlev/support-php",
     "keywords": [
+        "array",
+        "dot-notation-array",
         "php",
         "support",
         "tools",
