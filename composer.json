@@ -27,6 +27,7 @@
         "array",
         "number",
         "php",
+        "string",
         "support",
         "tools",
         "utils"
@@ -34,7 +35,8 @@
     "license": "MIT",
     "name": "sergeyakovlev/support",
     "require": {
-        "php": "^8.5"
+        "php": "^8.5",
+        "ext-mbstring": "*"
     },
     "require-dev": {
         "phpstan/phpstan": "^2.1.46",
