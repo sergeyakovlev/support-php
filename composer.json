@@ -30,7 +30,8 @@
         "string",
         "support",
         "tools",
-        "utils"
+        "utils",
+        "uuid"
     ],
     "license": "MIT",
     "name": "sergeyakovlev/support",
