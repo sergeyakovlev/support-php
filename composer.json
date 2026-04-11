@@ -25,6 +25,7 @@
     "homepage": "https://github.com/sergeyakovlev/support-php",
     "keywords": [
         "array",
+        "number",
         "php",
         "support",
         "tools",
