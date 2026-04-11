@@ -519,3 +519,179 @@ $lines = $input
     |> mb_trim(...)
     |> (static fn(string $v): array => explode("\n", $v));
 ```
+
+## UUID
+
+An immutable value object for [UUIDs](https://www.rfc-editor.org/rfc/rfc9562) (versions 1-8, the nil UUID and the max
+UUID) and a generator of random (version 4) UUIDs.
+
+The classes live in the `SergeYakovlev\Support\Uuid` namespace:
+
+| Class or interface                       | Description                                               |
+|------------------------------------------|-----------------------------------------------------------|
+| `BinaryUuid`                             | The UUID value object, it stores the 16 bytes of the UUID |
+| `UuidInterface`                          | The interface of the value object                         |
+| `UuidException`                          | Thrown when a value is not a valid UUID                   |
+| `Generator\BinaryUuidV4Generator`        | Generates random (version 4) UUIDs                        |
+| `Generator\BinaryUuidNilGenerator`       | Generates the nil UUID                                    |
+| `Generator\BinaryUuidMaxGenerator`       | Generates the max UUID                                    |
+| `Generator\BinaryUuidGeneratorInterface` | The interface of the generators                           |
+
+### Creating a UUID
+
+```php
+use SergeYakovlev\Support\Uuid\BinaryUuid;
+
+$uuid = BinaryUuid::v4();                                        // a random UUID, version 4
+$uuid = new BinaryUuid('550e8400-e29b-41d4-a716-446655440000');  // from a string
+```
+
+`BinaryUuid::v4()` uses a cryptographically secure random number generator.
+
+The constructor accepts a UUID in any of the three formats. The letters of a hexadecimal string can be in any case.
+
+| Format   | Length   | Example                                                              |
+|----------|----------|----------------------------------------------------------------------|
+| Standard | 36 chars | `550e8400-e29b-41d4-a716-446655440000`                               |
+| Compact  | 32 chars | `550e8400e29b41d4a716446655440000`                                   |
+| Binary   | 16 bytes | `"\x55\x0e\x84\x00\xe2\x9b\x41\xd4\xa7\x16\x44\x66\x55\x44\x00\x00"` |
+
+A `UuidException` is thrown if the value is not a valid UUID:
+
+- its length is not 16, 32 or 36;
+- it is not a hexadecimal string, or the hyphens of the standard format are not in their places
+  (the groups must be 8-4-4-4-12 characters long);
+- its version is not 1-8 or its variant is not 1-3 (see below).
+
+Besides the UUIDs with a version and a variant, the constructor accepts the nil UUID (all the bits are zero) and the
+max UUID (all the bits are one). It rejects the UUIDs of the NCS variant (variant 0), except the nil UUID.
+It reports an invalid value only with a `UuidException`: no PHP warning is raised.
+
+The nil and the max UUIDs are available as constants in all three formats:
+
+| Constant                  | Value                                  |
+|---------------------------|----------------------------------------|
+| `BinaryUuid::NIL`         | `00000000-0000-0000-0000-000000000000` |
+| `BinaryUuid::COMPACT_NIL` | `00000000000000000000000000000000`     |
+| `BinaryUuid::BINARY_NIL`  | 16 bytes `"\x00"`                      |
+| `BinaryUuid::MAX`         | `ffffffff-ffff-ffff-ffff-ffffffffffff` |
+| `BinaryUuid::COMPACT_MAX` | `ffffffffffffffffffffffffffffffff`     |
+| `BinaryUuid::BINARY_MAX`  | 16 bytes `"\xFF"`                      |
+
+```php
+$nil = new BinaryUuid(BinaryUuid::NIL);
+$max = new BinaryUuid(BinaryUuid::MAX);
+```
+
+### Reading a UUID
+
+```php
+$uuid = new BinaryUuid('550e8400-E29B-41D4-A716-446655440000');
+
+$uuid->toString();         // '550e8400-e29b-41d4-a716-446655440000'  (standard format, lowercase)
+$uuid->toCompactString();  // '550e8400e29b41d4a716446655440000'
+$uuid->toBinaryString();   // the 16 bytes
+
+(string) $uuid;            // the same as toString()
+json_encode(['id' => $uuid]);  // '{"id":"550e8400-e29b-41d4-a716-446655440000"}'
+
+$uuid->getVersion();       // 4
+$uuid->getVariant();       // 1
+```
+
+`BinaryUuid` implements `Stringable` and `JsonSerializable`, so it can be used as a string and in `json_encode()`.
+Two instances with the same value are equal under `==`, whatever format they were created from.
+
+`getVersion()` returns the version number: 1 time-based, 2 DCE security, 3 name-based (MD5), 4 random,
+5 name-based (SHA-1), 6 reordered time-based, 7 Unix time-based, 8 custom. The nil UUID has the version 0
+and the max UUID has the version 15. `getVariant()` returns:
+
+| Value | Variant                                               |
+|-------|-------------------------------------------------------|
+| `0`   | NCS backward compatibility (only the nil UUID has it) |
+| `1`   | RFC 4122, the standard variant                        |
+| `2`   | Microsoft Corporation backward compatibility          |
+| `3`   | Reserved for future definition (the max UUID has it)  |
+
+### Validating a string
+
+The static methods check a string without creating an object:
+
+| Method                                | Checks                                                                                                |
+|---------------------------------------|-------------------------------------------------------------------------------------------------------|
+| `BinaryUuid::isValid($value)`         | Whether the constructor accepts the value: the same as `new BinaryUuid($value)` without the exception |
+| `BinaryUuid::isStrictValid($value)`   | The standard format (36 chars) with the version 1-8 and the variant 8-f                               |
+| `BinaryUuid::isBinaryStrictValid($v)` | The same for 16 bytes: the version 1-8 and the variant 8-f                                            |
+| `BinaryUuid::isNil($value)`           | Whether the value is the nil UUID in any of the three formats                                         |
+| `BinaryUuid::isMax($value)`           | Whether the value is the max UUID in any of the three formats                                         |
+
+```php
+BinaryUuid::isStrictValid('550e8400-e29b-41d4-a716-446655440000');  // true
+BinaryUuid::isStrictValid('550e8400e29b41d4a716446655440000');      // false (not the standard format)
+BinaryUuid::isStrictValid('550e8400-e29b-91d4-a716-446655440000');  // false (version 9)
+BinaryUuid::isStrictValid(BinaryUuid::NIL);                         // false (the nil UUID has no version)
+
+BinaryUuid::isValid('550e8400e29b41d4a716446655440000');            // true
+BinaryUuid::isValid(hex2bin('550e8400e29b41d4a716446655440000'));   // true (16 bytes of a UUID)
+BinaryUuid::isValid(BinaryUuid::MAX);                               // true
+BinaryUuid::isValid('550e8400-e29b-91d4-a716-446655440000');        // false (version 9)
+BinaryUuid::isValid('550e8400-e29b-41d4-0716-446655440000');        // false (variant 0)
+BinaryUuid::isValid('550e8400e29b41d4a716446655440000----');        // false (hyphens in wrong places)
+BinaryUuid::isValid(random_bytes(16));                              // true only if the version and the variant fit
+BinaryUuid::isValid('abcdefghijklmnop');                            // false (16 bytes, but not a UUID)
+BinaryUuid::isValid('hello');                                       // false
+
+BinaryUuid::isNil(BinaryUuid::COMPACT_NIL);                         // true
+BinaryUuid::isMax(strtoupper(BinaryUuid::COMPACT_MAX));             // true (the case does not matter)
+```
+
+`isValid()` says the same as the constructor in every format: the structure must be right, and the value must be
+the nil UUID, the max UUID or have the version 1-8 and the variant 1-3. So arbitrary 16 bytes are usually not a UUID.
+`isStrictValid()` is stricter: it knows only the standard format, and the nil and the max UUIDs have no version, so
+it rejects them. To use a value, create the object and handle the exception, or check the value with `isValid()`
+first:
+
+```php
+use SergeYakovlev\Support\Uuid\BinaryUuid;
+use SergeYakovlev\Support\Uuid\UuidException;
+
+try {
+    $uuid = new BinaryUuid($request['id']);
+} catch (UuidException) {
+    // not a UUID
+}
+```
+
+### Generators
+
+`BinaryUuid::v4()` is a shortcut. The generators implement `BinaryUuidGeneratorInterface` with the single method
+`generate(): UuidInterface`, so a generator can be passed to a class that needs UUIDs and replaced in tests.
+
+```php
+use Random\Engine\Mt19937;
+use Random\Engine\Secure;
+use Random\Randomizer;
+use SergeYakovlev\Support\Uuid\Generator\BinaryUuidMaxGenerator;
+use SergeYakovlev\Support\Uuid\Generator\BinaryUuidNilGenerator;
+use SergeYakovlev\Support\Uuid\Generator\BinaryUuidV4Generator;
+
+$generator = new BinaryUuidV4Generator(new Randomizer(new Secure()));  // the same as BinaryUuid::v4()
+$uuid = $generator->generate();
+
+// In tests: the same seed gives the same UUIDs (never use this engine in production code)
+$generator = new BinaryUuidV4Generator(new Randomizer(new Mt19937(1)));
+
+$nil = new BinaryUuidNilGenerator()->generate();
+$max = new BinaryUuidMaxGenerator()->generate();
+```
+
+### `UuidException`
+
+`UuidException` extends `Exception`. The message tells what is wrong with the value:
+
+| Case                                                              | Message                                                                                     |
+|-------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| The length is not 16, 32 or 36                                    | `Invalid UUID length: expected 16, 32, or 36 characters.`                                   |
+| The compact format (32 chars) is not hexadecimal                  | `Invalid hexadecimal string: unable to convert to binary representation.`                   |
+| The standard format (36 chars) has wrong hyphens or non-hex chars | `Invalid UUID format: expected 8-4-4-4-12 hexadecimal characters separated by hyphens.`     |
+| The version or the variant is invalid                             | `Invalid UUID format: the value does not match UUID version 1-8 variant 1-3 specification.` |
