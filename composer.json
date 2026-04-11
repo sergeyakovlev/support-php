@@ -24,6 +24,7 @@
     "description": "Support package",
     "homepage": "https://github.com/sergeyakovlev/support-php",
     "keywords": [
+        "array",
         "php",
         "support",
         "tools",
