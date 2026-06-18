@@ -12,8 +12,15 @@
 
 declare(strict_types=1);
 
-namespace SergeYakovlev\Support\Uuid;
+namespace SergeYakovlev\Support\Uuid\Generator;
 
-use Exception;
+use SergeYakovlev\Support\Uuid\Uuid;
+use SergeYakovlev\Support\Uuid\UuidInterface;
 
-final class UuidException extends Exception {}
+final readonly class UuidNilGenerator implements UuidGeneratorInterface
+{
+    public function generate(): UuidInterface
+    {
+        return new Uuid(Uuid::BINARY_NIL);
+    }
+}
