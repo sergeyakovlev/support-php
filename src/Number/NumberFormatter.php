@@ -16,6 +16,20 @@ namespace SergeYakovlev\Support\Number;
 
 final class NumberFormatter implements NumberFormatterInterface
 {
+    public const string HTML_MINUS = '&minus;';
+
+    /**
+     * No-break space
+     */
+    public const string HTML_NBSP = '&nbsp;';
+
+    public const string UNICODE_MINUS = "\u{2212}"; // UTF-8: "\xE2\x88\x92"
+
+    /**
+     * No-break space
+     */
+    public const string UNICODE_NBSP = "\u{00A0}"; // UTF-8: "\xC2\xA0"
+
     /**
      * Formats a float number with digit grouping and optional sign prefixes
      *
