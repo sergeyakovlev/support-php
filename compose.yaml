@@ -3,8 +3,13 @@ name: sergeyakovlev_support
 services:
   php:
     build:
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+        USERNAME: ${USERNAME:-developer}
       context: ./docker/php/
     container_name: php
+    user: ${UID:-1000}:${GID:-1000}
     volumes:
       - ./:/var/www/html/
       - ./docker/php/custom-php.ini:/usr/local/etc/php/conf.d/custom-php.ini
