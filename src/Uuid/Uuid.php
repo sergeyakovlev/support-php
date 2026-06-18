@@ -1,12 +1,13 @@
 <?php
 
-/*
+/**
  * This file is part of the Support package.
  *
- * (c) Serge Yakovlev <serge.yakovlev@gmail.com>
+ * @author Serge Yakovlev <serge.yakovlev@gmail.com>
+ * @link https://github.com/sergeyakovlev/support-php
  *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
+ * For the full copyright and license information, please view the LICENSE file
+ * that was distributed with this source code.
  */
 
 declare(strict_types=1);
@@ -15,6 +16,7 @@ namespace SergeYakovlev\Support\Uuid;
 
 use Random\Engine\Secure;
 use Random\Randomizer;
+use SergeYakovlev\Support\Uuid\Generator\UuidV4Generator;
 
 final readonly class Uuid implements UuidInterface
 {
@@ -24,7 +26,9 @@ final readonly class Uuid implements UuidInterface
 
     public const string NIL = '00000000-0000-0000-0000-000000000000';
 
-    /** @var non-empty-string $binaryValue Binary UUID value */
+    /**
+     * @var non-empty-string $binaryValue Binary UUID value
+     */
     private string $binaryValue;
 
     /**
@@ -49,14 +53,16 @@ final readonly class Uuid implements UuidInterface
         }
 
         if (!self::isBinaryStrictValid($binaryValue) && !self::isNil($value)) {
-            throw new UuidException('Invalid UUID format: the value does not match UUID version 1-8 variant 1-2 specification.');
+            throw new UuidException(
+                'Invalid UUID format: the value does not match UUID version 1-8 variant 1-3 specification.',
+            );
         }
 
         $this->binaryValue = $binaryValue;
     }
 
     /**
-     * @return non-empty-string
+     * @return non-empty-string The 36-character UUID string in the format "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
      */
     public function __toString(): string
     {
@@ -185,6 +191,14 @@ final readonly class Uuid implements UuidInterface
     }
 
     /**
+     * @return non-empty-string The 36-character UUID string in the format "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+     */
+    public function jsonSerialize(): string
+    {
+        return $this->toString();
+    }
+
+    /**
      * Returns the binary representation of the UUID.
      *
      * @return non-empty-string The 16-byte binary string
@@ -207,23 +221,23 @@ final readonly class Uuid implements UuidInterface
     /**
      * Returns the standard string representation with hyphens.
      *
-     * @return string The 36-character UUID string in the format "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+     * @return non-empty-string The 36-character UUID string in the format "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
      */
     public function toString(): string
     {
         return $this->binaryValue
-                |> bin2hex(...)
-                |> (
-                    static fn(string $v): string => substr($v, 0, 8)
-                        . '-'
-                        . substr($v, 8, 4)
-                        . '-'
-                        . substr($v, 12, 4)
-                        . '-'
-                        . substr($v, 16, 4)
-                        . '-'
-                        . substr($v, 20, 12)
-                );
+            |> bin2hex(...)
+            |> (
+                static fn(string $v): string => substr($v, 0, 8)
+                    . '-'
+                    . substr($v, 8, 4)
+                    . '-'
+                    . substr($v, 12, 4)
+                    . '-'
+                    . substr($v, 16, 4)
+                    . '-'
+                    . substr($v, 20, 12)
+            );
     }
 
     /**
@@ -240,18 +254,10 @@ final readonly class Uuid implements UuidInterface
      */
     public static function v4(): self
     {
-        $value = new Randomizer(new Secure())->getBytes(16);
-
-        $value[6] = $value[6]
-            |> ord(...)
-            |> (static fn(int $v): int => $v & 0x0f | 0x40)
-            |> chr(...);
-
-        $value[8] = $value[8]
-            |> ord(...)
-            |> (static fn(int $v): int => $v & 0x3f | 0x80)
-            |> chr(...);
-
-        return new self($value);
+        return new UuidV4Generator(
+            new Randomizer(
+                new Secure(),
+            ),
+        )->generate();
     }
 }
