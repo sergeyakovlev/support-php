@@ -392,3 +392,130 @@ than three elements, or keys other than `0`, `1` and `2`.
 
 `NumberException` extends `Exception`. It is thrown by `number_float_format()` and `html_float_format()` for `NAN`
 and infinity, and by `number_ru_plural_things()` for a negative number or when `$forms` is not exactly three forms.
+
+## String functions
+
+The functions live in the `SergeYakovlev\Support\Str` namespace and are loaded by Composer's autoloader.
+Import them with `use function`.
+
+### `str_emoji_country_flag()`
+
+```php
+str_emoji_country_flag(string $countryIsoAlpha2, ?string $extLeft = null, ?string $extRight = null): string
+```
+
+Converts an [ISO 3166-1 alpha-2](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2) country code to the flag emoji.
+For example, `RU` becomes `🇷🇺`. A flag is a pair of Unicode regional indicator symbols.
+
+`$extLeft` and `$extRight` are optional texts added before and after the flag, such as a space or `&nbsp;`
+between the flag and the country name. `null` and `''` both mean "no text".
+
+The code must be exactly two Latin letters in the same case: `RU` or `ru`. For any other code the function
+returns an empty string and does not add the texts, so an unknown code leaves no stray spaces behind:
+
+| Code                      | Result                |
+|---------------------------|-----------------------|
+| `'RU'`, `'ru'`            | `'🇷🇺'`               |
+| `'Ru'`                    | `''` (mixed case)     |
+| `'RUS'`, `'R'`, `''`      | `''` (wrong length)   |
+| `'R1'`, `'РУ'`, `' RU'`   | `''` (not two letters) |
+
+The code is not checked against the list of existing countries: any two letters give a flag sequence.
+Whether it is shown as a flag depends on the platform, and some of them (notably Windows) show the two letters instead.
+
+```php
+use function SergeYakovlev\Support\Str\str_emoji_country_flag;
+
+str_emoji_country_flag('RU');                    // '🇷🇺'
+str_emoji_country_flag('ru');                    // '🇷🇺'
+str_emoji_country_flag('RU', '&nbsp;');          // '&nbsp;🇷🇺'
+str_emoji_country_flag('RU', null, '&nbsp;');    // '🇷🇺&nbsp;'
+str_emoji_country_flag('RU', ' ', '&nbsp;');     // ' 🇷🇺&nbsp;'
+str_emoji_country_flag('XXX', null, '&nbsp;');   // ''
+```
+
+The texts are usually placed on the side of the name:
+
+```php
+echo str_emoji_country_flag('RU', null, '&nbsp;') . 'Russia'; // '🇷🇺&nbsp;Russia'
+```
+
+### `str_non_empty()`
+
+```php
+str_non_empty(?string $string): ?string
+```
+
+Returns the given string as is, or `null` if it is `null` or an empty string.
+
+Only a zero-length string counts as empty. Strings such as `'0'` and `' '` are returned unchanged,
+and nothing is trimmed.
+
+| Input    | Result   |
+|----------|----------|
+| `null`   | `null`   |
+| `''`     | `null`   |
+| `'0'`    | `'0'`    |
+| `' '`    | `' '`    |
+| `'text'` | `'text'` |
+
+The result is typed as `non-empty-string|null`, so static analysers know the string is not empty
+once the `null` case is excluded.
+
+Use it to replace an empty string with a default value:
+
+```php
+use function SergeYakovlev\Support\Str\str_non_empty;
+
+$title = str_non_empty($request['title'] ?? null) ?? 'Untitled';
+```
+
+The function takes one argument, so it works in a pipe. To treat whitespace-only strings as empty,
+trim first:
+
+```php
+$name = $input
+    |> mb_trim(...)
+    |> str_non_empty(...);
+```
+
+The function may return `null`, so put it at the end of a pipe chain: the next step would receive `null`
+and fail with a `TypeError`.
+
+### `str_normalize_newlines()`
+
+```php
+str_normalize_newlines(?string $string): ?string
+```
+
+Replaces every line break with `"\n"` (LF). If the input is `null`, `null` is returned.
+
+| Line break      | Result |
+|-----------------|--------|
+| `"\r\n"` (CRLF) | `"\n"` |
+| `"\r"` (CR)     | `"\n"` |
+| `"\n"` (LF)     | `"\n"` |
+
+Each line break is replaced on its own and none are merged or dropped, so the number of lines stays the same.
+For example, `"\r\n\r\n"` becomes `"\n\n"`, and `"\n\r"` (LF followed by CR) becomes `"\n\n"`.
+
+Only these three variants are recognized. Vertical tab, form feed and the Unicode separators
+(`U+0085`, `U+2028`, `U+2029`) are not touched. The function works on bytes, so it is safe for any
+encoding and does not fail on invalid UTF-8.
+
+```php
+use function SergeYakovlev\Support\Str\str_normalize_newlines;
+
+$text = str_normalize_newlines("first\r\nsecond\rthird\nfourth");
+// "first\nsecond\nthird\nfourth"
+```
+
+The return type follows the input: a `string` gives a `string`, and `null` gives `null`. Static analysers
+know this, so for a `string` input the function can be used anywhere in a pipe:
+
+```php
+$lines = $input
+    |> str_normalize_newlines(...)
+    |> mb_trim(...)
+    |> (static fn(string $v): array => explode("\n", $v));
+```
