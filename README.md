@@ -392,3 +392,195 @@ than three elements, or keys other than `0`, `1` and `2`.
 
 `NumberException` extends `Exception`. It is thrown by `number_float_format()` and `html_float_format()` for `NAN`
 and infinity, and by `number_ru_plural_things()` for a negative number or when `$forms` is not exactly three forms.
+
+## String functions
+
+The functions live in the `SergeYakovlev\Support\Str` namespace and are loaded by Composer's autoloader.
+Import them with `use function`.
+
+### `str_emoji_country_flag()`
+
+```php
+str_emoji_country_flag(string $countryIsoAlpha2): string
+```
+
+Converts an [ISO 3166-1 alpha-2](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2) country code to the flag emoji.
+For example, `RU` becomes `🇷🇺`. A flag is a pair of Unicode regional indicator symbols.
+
+The code must be exactly two Latin letters in the same case: `RU` or `ru`. For any other code the function
+returns an empty string:
+
+| Code                      | Result                |
+|---------------------------|-----------------------|
+| `'RU'`, `'ru'`            | `'🇷🇺'`               |
+| `'Ru'`                    | `''` (mixed case)     |
+| `'RUS'`, `'R'`, `''`      | `''` (wrong length)   |
+| `'R1'`, `'РУ'`, `' RU'`   | `''` (not two letters) |
+
+The code is not checked against the list of existing countries: any two letters give a flag sequence.
+Whether it is shown as a flag depends on the platform, and some of them (notably Windows) show the two letters instead.
+
+```php
+use function SergeYakovlev\Support\Str\str_emoji_country_flag;
+
+str_emoji_country_flag('RU');     // '🇷🇺'
+str_emoji_country_flag('ru');     // '🇷🇺'
+str_emoji_country_flag('Ru');     // ''
+str_emoji_country_flag('XXX');    // ''
+```
+
+The function takes one argument, so it works in a pipe. A code in mixed case is invalid, so bring it to one case first:
+
+```php
+$flag = ' Ru '
+    |> mb_trim(...)
+    |> mb_strtoupper(...)
+    |> str_emoji_country_flag(...); // '🇷🇺'
+```
+
+### `str_empty_to_null()`
+
+```php
+str_empty_to_null(?string $string): ?string
+```
+
+Returns the given string as is, or `null` if it is `null` or an empty string.
+
+Only a zero-length string counts as empty. Strings such as `'0'` and `' '` are returned unchanged,
+and nothing is trimmed.
+
+| Input    | Result   |
+|----------|----------|
+| `null`   | `null`   |
+| `''`     | `null`   |
+| `'0'`    | `'0'`    |
+| `' '`    | `' '`    |
+| `'text'` | `'text'` |
+
+The result is typed as `non-empty-string|null`, so static analysers know the string is not empty
+once the `null` case is excluded.
+
+Use it to replace an empty string with a default value:
+
+```php
+use function SergeYakovlev\Support\Str\str_empty_to_null;
+
+$title = str_empty_to_null($request['title'] ?? null) ?? 'Untitled';
+```
+
+The function takes one argument, so it works in a pipe. To treat whitespace-only strings as empty,
+trim first:
+
+```php
+$name = $input
+    |> mb_trim(...)
+    |> str_empty_to_null(...);
+```
+
+The function may return `null`, so put it at the end of a pipe chain: the next step would receive `null`
+and fail with a `TypeError`.
+
+### `str_ensure_starts_with()` and `str_ensure_ends_with()`
+
+```php
+str_ensure_starts_with(?string $string, string $prefix, bool $collapse = false): ?string
+str_ensure_ends_with(?string $string, string $suffix, bool $collapse = false): ?string
+```
+
+Return a string that starts with `$prefix` (ends with `$suffix`). The text is added only if it is missing, so
+applying a function twice gives the same result as applying it once.
+
+The prefix and the suffix are whole substrings compared case-sensitively. They are not sets of characters,
+as in `ltrim()` and `rtrim()`: `str_ensure_starts_with('baz', 'ab')` gives `'abbaz'`. The functions work on bytes,
+so they are safe for multibyte text and do not fail on invalid UTF-8. An empty `$prefix` or `$suffix` changes nothing.
+
+If `$string` is `null`, `null` is returned and nothing is added. An empty string is not `null`:
+`str_ensure_starts_with('', '/')` gives `'/'`. The return type follows the input: a `string` gives a `string`,
+and `null` gives `null`. Static analysers know this, so for a `string` input the result can be used anywhere in a pipe.
+
+`$collapse` sets what happens when the string already has the text, repeated or not:
+
+| `$collapse`       | Behaviour                                                       | Example                   |
+|-------------------|-----------------------------------------------------------------|---------------------------|
+| `false` (default) | Returned as is if the string already has the prefix (suffix).   | `'//foo'` gives `'//foo'` |
+| `true`            | The repeats at the start (end) become a single prefix (suffix). | `'//foo'` gives `'/foo'`  |
+
+Only the repeats that are next to each other at the edge are collapsed. The rest of the string is not touched.
+
+```php
+use function SergeYakovlev\Support\Str\str_ensure_ends_with;
+use function SergeYakovlev\Support\Str\str_ensure_starts_with;
+
+str_ensure_starts_with('foo', '/');           // '/foo'
+str_ensure_starts_with('/foo', '/');          // '/foo'
+str_ensure_starts_with('//foo', '/');         // '//foo'
+str_ensure_starts_with('//foo', '/', true);   // '/foo'
+str_ensure_starts_with('baz', 'ab');          // 'abbaz'
+str_ensure_starts_with('ёлка', 'я');          // 'яёлка'
+str_ensure_starts_with('', '/');              // '/'
+str_ensure_starts_with(null, '/');            // null
+
+str_ensure_ends_with('foo', '/');             // 'foo/'
+str_ensure_ends_with('foo/', '/');            // 'foo/'
+str_ensure_ends_with('foo//', '/');           // 'foo//'
+str_ensure_ends_with('foo//', '/', true);     // 'foo/'
+str_ensure_ends_with('image.jpg', '.png');    // 'image.jpg.png'
+str_ensure_ends_with('report.txt', '.txt');   // 'report.txt'
+str_ensure_ends_with(null, '/');              // null
+```
+
+Use them to join parts of a URL or a path regardless of how the parts were written:
+
+```php
+$url = str_ensure_ends_with('https://example.com', '/', true) . 'api/users';
+// 'https://example.com/api/users'
+
+$url = str_ensure_ends_with('https://example.com//', '/', true) . 'api/users';
+// 'https://example.com/api/users'
+```
+
+The functions take more than one argument, so wrap the call in a closure to use it in a pipe:
+
+```php
+$path = $input
+    |> mb_trim(...)
+    |> (static fn(string $v): string => str_ensure_starts_with($v, '/', true));
+```
+
+### `str_normalize_newlines()`
+
+```php
+str_normalize_newlines(?string $string): ?string
+```
+
+Replaces every line break with `"\n"` (LF). If the input is `null`, `null` is returned.
+
+| Line break      | Result |
+|-----------------|--------|
+| `"\r\n"` (CRLF) | `"\n"` |
+| `"\r"` (CR)     | `"\n"` |
+| `"\n"` (LF)     | `"\n"` |
+
+Each line break is replaced on its own and none are merged or dropped, so the number of lines stays the same.
+For example, `"\r\n\r\n"` becomes `"\n\n"`, and `"\n\r"` (LF followed by CR) becomes `"\n\n"`.
+
+Only these three variants are recognized. Vertical tab, form feed and the Unicode separators
+(`U+0085`, `U+2028`, `U+2029`) are not touched. The function works on bytes, so it is safe for any
+encoding and does not fail on invalid UTF-8.
+
+```php
+use function SergeYakovlev\Support\Str\str_normalize_newlines;
+
+$text = str_normalize_newlines("first\r\nsecond\rthird\nfourth");
+// "first\nsecond\nthird\nfourth"
+```
+
+The return type follows the input: a `string` gives a `string`, and `null` gives `null`. Static analysers
+know this, so for a `string` input the function can be used anywhere in a pipe:
+
+```php
+$lines = $input
+    |> str_normalize_newlines(...)
+    |> mb_trim(...)
+    |> (static fn(string $v): array => explode("\n", $v));
+```

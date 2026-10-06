@@ -8,7 +8,8 @@
     "autoload": {
         "files": [
             "src/DotNotation/DotNotationArrayFunctions.php",
-            "src/Number/NumberFunctions.php"
+            "src/Number/NumberFunctions.php",
+            "src/Str/StrFunctions.php"
         ],
         "psr-4": {
             "\\SergeYakovlev\\Support\\": "src/"
@@ -29,17 +30,28 @@
     "homepage": "https://github.com/sergeyakovlev/support-php",
     "keywords": [
         "array",
+        "country",
         "dot-notation-array",
+        "emoji",
+        "flag",
+        "iso-3166",
+        "iso-3166-1",
+        "iso-3166-1-alpha-2",
         "number",
         "php",
+        "string",
         "support",
         "tools",
+        "unicode",
+        "utf8",
+        "utf-8",
         "utils"
     ],
     "license": "MIT",
     "name": "sergeyakovlev/support",
     "require": {
-        "php": "^8.5"
+        "php": "^8.5",
+        "ext-mbstring": "*"
     },
     "require-dev": {
         "phpstan/phpstan": "^2.1.46",
